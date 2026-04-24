@@ -1,6 +1,8 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
+.pytest_cache/
+.ruff_cache/
 build/
 dist/
 wheels/
@@ -8,3 +10,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Local environment and editor files
+.env
+.env.*
+.vscode/
+.codex
+.codex/

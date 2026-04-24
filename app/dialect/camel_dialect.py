@@ -139,6 +139,30 @@ class CamelDialectIdentifier:
         )
         return signal
 
+    def classify_label(self, text: str) -> str:
+        """Return only one strict label: MSA, Gulf, or Hejazi."""
+        signal = self.identify(text)
+        label = signal.conditioning_label
+        if label not in SUPPORTED_CONDITIONING_LABELS:
+            return DEFAULT_CONDITIONING_LABEL
+        return label
+
+    def classify_json(self, text: str) -> dict[str, object]:
+        """Return pipeline-friendly dialect JSON payload."""
+        signal = self.identify(text)
+        confidence = max(0.0, min(1.0, float(signal.confidence)))
+
+        if signal.is_fallback:
+            reason = f"fallback: {signal.fallback_reason or 'unspecified'}"
+        else:
+            reason = f"raw={signal.raw_label} mapped={signal.conditioning_label}"
+
+        return {
+            "dialect": signal.conditioning_label,
+            "confidence": confidence,
+            "reason": reason,
+        }
+
     def _load_model(self) -> Any:
         try:
             from camel_tools.dialectid import DialectIdentifier

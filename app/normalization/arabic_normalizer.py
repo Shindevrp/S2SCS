@@ -11,6 +11,7 @@ from app.utils.logger import get_logger
 DIACRITICS_PATTERN = re.compile(r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]")
 ARABIC_CHAR_PATTERN = re.compile(r"[\u0600-\u06FF]")
 ARABIZI_RUN_PATTERN = re.compile(r"[A-Za-z0-9']+")
+ARABIZI_LATIN_DIGIT_PATTERN = re.compile(r"(?i)^(?=.*[a-z])(?=.*\d)[a-z0-9']+$")
 WHITESPACE_TOKEN_PATTERN = re.compile(r"\s+|[^\s]+")
 EDGE_PUNCTUATION_PATTERN = re.compile(r"^([^A-Za-z0-9\u0600-\u06FF']*)(.*?)([^A-Za-z0-9\u0600-\u06FF']*)$")
 
@@ -130,6 +131,85 @@ DIALECT_CHAR_OVERRIDES = {
     "Gulf": {"g": "ق"},
     "Hejazi": {"g": "ق"},
 }
+
+SAUDI_SLANG_DICTIONARY = {
+    "وش": "ماذا",
+    "ايش": "ماذا",
+    "مره": "جدا",
+    "يبغى": "يريد",
+}
+
+ARABIZI_DIGIT_MAP = {
+    "2": "ء",
+    "3": "ع",
+    "5": "خ",
+    "6": "ط",
+    "7": "ح",
+}
+
+
+def normalize_alef(text: str) -> str:
+    return text.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
+
+
+def remove_diacritics(text: str) -> str:
+    return DIACRITICS_PATTERN.sub("", text)
+
+
+def normalize_hamza(text: str) -> str:
+    return text.replace("ؤ", "و").replace("ئ", "ي")
+
+
+def is_arabizi_token(token: str) -> bool:
+    return bool(ARABIZI_LATIN_DIGIT_PATTERN.fullmatch(token or ""))
+
+
+def convert_arabizi_token(token: str) -> str:
+    if not is_arabizi_token(token):
+        return token
+    return "".join(ARABIZI_DIGIT_MAP.get(char, char) for char in token)
+
+
+def apply_saudi_slang(token: str, dialect: str) -> str:
+    if (dialect or "").strip().lower() not in {"gulf", "hejazi", "saudi"}:
+        return token
+    return SAUDI_SLANG_DICTIONARY.get(token, token)
+
+
+def normalize_text(text: str, dialect: str) -> str:
+    """Normalize Arabic code-switched text while preserving English words."""
+    normalized_tokens: list[str] = []
+
+    for token in WHITESPACE_TOKEN_PATTERN.findall(text or ""):
+        if token.isspace():
+            normalized_tokens.append(token)
+            continue
+
+        match = EDGE_PUNCTUATION_PATTERN.match(token)
+        if not match:
+            normalized_tokens.append(token)
+            continue
+
+        prefix, body, suffix = match.groups()
+        if not body:
+            normalized_tokens.append(token)
+            continue
+
+        updated = body
+
+        if is_arabizi_token(updated):
+            updated = convert_arabizi_token(updated)
+
+        if ARABIC_CHAR_PATTERN.search(updated):
+            updated = remove_diacritics(updated)
+            updated = normalize_alef(updated)
+            updated = normalize_hamza(updated)
+            updated = apply_saudi_slang(updated, dialect=dialect)
+
+        normalized_tokens.append(f"{prefix}{updated}{suffix}")
+
+    sentence = "".join(normalized_tokens)
+    return re.sub(r"\s+", " ", sentence).strip()
 
 
 @dataclass

@@ -6,6 +6,7 @@ from app.cs_detection.cs_features import (
     analyze_code_switch,
     compute_cs_index,
     detect_matrix_language,
+    extract_features,
     extract_embedded_language_islands,
 )
 
@@ -119,3 +120,31 @@ def test_analyze_code_switch_handles_no_language_tokens() -> None:
     assert metrics.secondary_language is None
     assert metrics.embedded_language_islands == []
     assert metrics.language_token_count == 0
+
+
+def test_extract_features_matches_example_output() -> None:
+    tokens = ["ماذا", "تفعل", "today", "انا", "coffee"]
+    labels = ["AR", "AR", "EN", "AR", "EN"]
+
+    features = extract_features(tokens, labels)
+
+    assert features["switch_points"] == 3
+    assert features["CSI"] == pytest.approx(0.6)
+    assert features["matrix_language"] == "AR"
+    assert len(features["embedded_islands"]) == 2
+    assert features["embedded_islands"][0]["text"] == "today"
+    assert features["embedded_islands"][1]["text"] == "coffee"
+
+
+def test_extract_features_handles_empty_input() -> None:
+    features = extract_features([], [])
+
+    assert features["switch_points"] == 0
+    assert features["CSI"] == 0.0
+    assert features["matrix_language"] == "UNKNOWN"
+    assert features["embedded_islands"] == []
+
+
+def test_extract_features_rejects_mismatched_lengths() -> None:
+    with pytest.raises(ValueError, match="same length"):
+        extract_features(["hello"], ["EN", "AR"])

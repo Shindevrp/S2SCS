@@ -101,3 +101,35 @@ def test_identify_skips_model_when_arabic_content_is_too_small() -> None:
     assert signal.is_fallback is True
     assert signal.fallback_reason == "insufficient_arabic_content"
     assert model.last_texts is None
+
+
+def test_classify_label_returns_only_supported_label() -> None:
+    model = FakeDialectModel(FakePrediction(top="JED", scores={"JED": 0.91}))
+    identifier = CamelDialectIdentifier(model=model)
+
+    label = identifier.classify_label("كيفك يا صاحبي")
+
+    assert label == "Hejazi"
+
+
+def test_classify_json_returns_expected_schema_for_non_fallback() -> None:
+    model = FakeDialectModel(FakePrediction(top="RIY", scores={"RIY": 0.74, "MSA": 0.11}))
+    identifier = CamelDialectIdentifier(model=model)
+
+    payload = identifier.classify_json("وش الاخبار")
+
+    assert set(payload.keys()) == {"dialect", "confidence", "reason"}
+    assert payload["dialect"] == "Gulf"
+    assert isinstance(payload["confidence"], float)
+    assert 0.0 <= payload["confidence"] <= 1.0
+    assert "raw=RIY" in str(payload["reason"])
+
+
+def test_classify_json_returns_fallback_reason_when_needed() -> None:
+    model = FakeDialectModel(FakePrediction(top="CAI", scores={"CAI": 0.85}))
+    identifier = CamelDialectIdentifier(model=model)
+
+    payload = identifier.classify_json("احنا رايحين دلوقتي")
+
+    assert payload["dialect"] == "MSA"
+    assert "fallback:" in str(payload["reason"])

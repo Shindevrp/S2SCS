@@ -264,6 +264,87 @@ def analyze_code_switch(
     )
 
 
+def extract_features(tokens: list[str], labels: list[str]) -> dict[str, object]:
+    """Extract simple code-switching features from token-level labels.
+
+    Output format:
+    {
+      "switch_points": int,
+      "CSI": float,
+      "matrix_language": str,
+      "embedded_islands": list
+    }
+    """
+    if len(tokens) != len(labels):
+        raise ValueError("tokens and labels must have the same length")
+
+    total_tokens = len(tokens)
+    if total_tokens == 0:
+        return {
+            "switch_points": 0,
+            "CSI": 0.0,
+            "matrix_language": "UNKNOWN",
+            "embedded_islands": [],
+        }
+
+    switch_points = sum(
+        1 for previous, current in zip(labels, labels[1:]) if previous != current
+    )
+    csi = switch_points / float(total_tokens)
+
+    ar_count = sum(1 for label in labels if label == "AR")
+    en_count = sum(1 for label in labels if label == "EN")
+    if ar_count == 0 and en_count == 0:
+        matrix_language = "UNKNOWN"
+    elif ar_count >= en_count:
+        matrix_language = "AR"
+    else:
+        matrix_language = "EN"
+
+    embedded_islands: list[dict[str, object]] = []
+    if matrix_language in {"AR", "EN"}:
+        non_dominant = "EN" if matrix_language == "AR" else "AR"
+        island_start: Optional[int] = None
+
+        for index, label in enumerate(labels):
+            if label == non_dominant:
+                if island_start is None:
+                    island_start = index
+                continue
+
+            if island_start is not None:
+                island_end = index - 1
+                embedded_islands.append(
+                    {
+                        "language": non_dominant,
+                        "start": island_start,
+                        "end": island_end,
+                        "tokens": tokens[island_start : island_end + 1],
+                        "text": " ".join(tokens[island_start : island_end + 1]),
+                    }
+                )
+                island_start = None
+
+        if island_start is not None:
+            island_end = total_tokens - 1
+            embedded_islands.append(
+                {
+                    "language": non_dominant,
+                    "start": island_start,
+                    "end": island_end,
+                    "tokens": tokens[island_start : island_end + 1],
+                    "text": " ".join(tokens[island_start : island_end + 1]),
+                }
+            )
+
+    return {
+        "switch_points": switch_points,
+        "CSI": csi,
+        "matrix_language": matrix_language,
+        "embedded_islands": embedded_islands,
+    }
+
+
 def _language_predictions(predictions: list[TokenPrediction]) -> list[TokenPrediction]:
     return [prediction for prediction in predictions if prediction.label in LANGUAGE_LABELS]
 

@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 import torch
-import numpy as np
 
 from app.utils.logger import get_logger
 
@@ -85,14 +84,13 @@ class QwBaseerASR:
         )
 
         try:
-            audio_input = (audio.detach().cpu().numpy(), chunk.sample_rate)
-            result = self.model.transcribe(
-                audio_input,
-                context=prompt,
-                language=language_hint,
-                return_time_stamps=return_timestamps,
+            decoded_text = self._run_inference(
+                audio=audio,
+                sample_rate=chunk.sample_rate,
+                prompt=prompt,
+                language_hint=language_hint,
+                return_timestamps=return_timestamps,
             )
-            decoded_text = result.text
         except Exception as exc:
             self.logger.exception("ASR inference failed for chunk %s", chunk.chunk_id)
             raise RuntimeError("QwBaseer ASR inference failed") from exc
@@ -273,6 +271,46 @@ class QwBaseerASR:
                 )
             )
         return segments
+
+    def _run_inference(
+        self,
+        *,
+        audio: torch.Tensor,
+        sample_rate: int,
+        prompt: str,
+        language_hint: Optional[str],
+        return_timestamps: bool,
+    ) -> str:
+        audio_input = (audio.detach().cpu().numpy(), sample_rate)
+
+        if hasattr(self.model, "transcribe"):
+            result = self.model.transcribe(
+                audio_input,
+                context=prompt,
+                language=language_hint,
+                return_time_stamps=return_timestamps,
+            )
+            return str(result.text)
+
+        if self.processor is not None and hasattr(self.model, "generate"):
+            model_inputs = self.processor(
+                text=prompt,
+                audio=audio_input[0],
+                sampling_rate=sample_rate,
+                return_tensors="pt",
+            )
+            model_inputs = self._move_to_device(model_inputs)
+
+            with torch.inference_mode():
+                generated_ids = self.model.generate(**model_inputs)
+
+            decoded = self.processor.batch_decode(
+                generated_ids,
+                skip_special_tokens=True,
+            )
+            return str(decoded[0] if decoded else "")
+
+        raise RuntimeError("ASR model must expose either `transcribe` or `generate` support")
 
     def _validate_chunk(self, chunk: ASRAudioChunk) -> None:
         if chunk.sample_rate != 16000:

@@ -104,7 +104,7 @@ class GemmaResponseGenerator:
         except ImportError as exc:
             self.logger.exception("transformers is not installed")
             raise RuntimeError(
-                "transformers is required to load the Gemma response generator."
+                "transformers is required to load the Gemma response generatorgoogle/gemma-2b-it."
             ) from exc
 
         try:
@@ -130,9 +130,7 @@ class GemmaResponseGenerator:
             model.eval()
             return tokenizer, model
         except Exception as exc:
-            self.logger.exception(
-                "Failed to load Gemma model from %s", self.model_name_or_path
-            )
+            self.logger.exception("Failed to load Gemma model from %s", self.model_name_or_path)
             raise RuntimeError(
                 "Failed to load Gemma. Ensure you accepted the Gemma license on Hugging Face "
                 "and authenticated with `hf auth login`, or point to a downloaded local path."

@@ -1,3 +1,58 @@
-# config.yaml
+server:
+  host: 0.0.0.0
+  port: 8000
+  reload: false
+  cors_allow_origins:
+    - "*"
+  rate_limit_per_minute: 60
+  warmup_models_on_startup: true
 
-# Main configuration file
+models:
+  vad:
+    threshold: 0.5
+  asr:
+    model_name_or_path: models/Nabeh_QwBaseerSTT
+    max_new_tokens: 256
+    local_files_only: true
+  dialect:
+    confidence_threshold: 0.4
+    minimum_arabic_chars: 6
+  code_switch:
+    model_name_or_path: xlm-roberta-base
+  llm:
+    provider: qwen
+    model_name_or_path: models/Qwen/Qwen2.5-7B-Instruct
+    max_new_tokens: 128
+    temperature: 0.7
+    top_p: 0.9
+    local_files_only: true
+  tts:
+    model_name_or_path: models/Qwen/Qwen2.5-Omni-3B
+    local_files_only: true
+    pause_duration_ms: 120
+
+audio:
+  input_sample_rate: 16000
+  output_sample_rate: 24000
+  frame_ms: 32
+  end_silence_ms: 700
+  min_speech_ms: 350
+  max_utterance_s: 12.0
+  asr_chunk_ms: 1200
+
+pipeline:
+  task_instruction: Generate a natural conversational response.
+  language_hint: null
+  sliding_window_tokens: 48
+  max_context_updates: 8
+  stream_chunk_duration_ms: 120
+  first_chunk_duration_ms: 40
+  inter_segment_pause_ms: 0
+
+monitoring:
+  enable_metrics: true
+  metrics_window_size: 200
+  health_model_path_checks: true
+  model_cache_ttl_seconds: 3600
+  model_warmup_on_startup: true
+  lazy_load_models: true
