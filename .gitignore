@@ -17,3 +17,9 @@ wheels/
 .vscode/
 .codex
 .codex/
+
+# Documentation
+docs/
+
+# Downloaded models (too large for git)
+models/

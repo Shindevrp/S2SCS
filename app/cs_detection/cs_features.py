@@ -13,7 +13,7 @@ LANGUAGE_LABELS = ("AR", "EN")
 LABEL_TO_ID = {label: index for index, label in enumerate(LABELS)}
 ID_TO_LABEL = {index: label for label, index in LABEL_TO_ID.items()}
 
-DIALECT_LABELS = ("MSA", "Gulf", "Hejazi")
+DIALECT_LABELS = ("MSA", "Gulf", "Hejazi", "mixed")
 DIALECT_TO_ID = {label: index for index, label in enumerate(DIALECT_LABELS)}
 ID_TO_DIALECT = {index: label for label, index in DIALECT_TO_ID.items()}
 

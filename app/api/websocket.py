@@ -19,6 +19,9 @@ from app.streaming.streamer import StreamingAudioChunk
 from app.utils.logger import get_logger
 
 
+MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB limit (~1 min of 16kHz 16-bit audio)
+
+
 @dataclass
 class WSMessage:
     event: str
@@ -95,6 +98,13 @@ class AsyncConversationHandler:
 
         try:
             audio_bytes = base64.b64decode(audio_data)
+            if len(audio_bytes) > MAX_AUDIO_BYTES:
+                await self._send_event(
+                    websocket,
+                    "error",
+                    {"message": f"Audio too large: {len(audio_bytes)} bytes exceeds {MAX_AUDIO_BYTES} limit"},
+                )
+                return
             import numpy as np
             import io
             import wave

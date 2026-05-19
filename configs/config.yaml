@@ -18,10 +18,10 @@ models:
     confidence_threshold: 0.4
     minimum_arabic_chars: 6
   code_switch:
-    model_name_or_path: xlm-roberta-base
+    model_name_or_path: models/1716Shinde/xlmr-cs-finetuned
   llm:
-    provider: qwen
-    model_name_or_path: models/Qwen/Qwen2.5-7B-Instruct
+    provider: jais
+    model_name_or_path: models/mlconvexai/jais-13b-chat_bitsandbytes_4bit
     max_new_tokens: 128
     temperature: 0.7
     top_p: 0.9

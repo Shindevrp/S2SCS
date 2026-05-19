@@ -19,7 +19,7 @@ from app.dialect.camel_dialect import DialectSignal
 from app.utils.logger import get_logger
 
 
-DEFAULT_XLMR_MODEL = "xlm-roberta-base"
+DEFAULT_XLMR_MODEL = "models/1716Shinde/xlmr-cs-finetuned"
 
 
 @dataclass
@@ -123,11 +123,17 @@ class XLMRCodeSwitchDetector:
 
         try:
             with torch.inference_mode():
-                logits = self.model(
+                outputs = self.model(
                     input_ids=inputs.input_ids,
                     attention_mask=inputs.attention_mask,
                     dialect_ids=inputs.dialect_ids,
                 )
+            if isinstance(outputs, dict):
+                logits = outputs["logits"]
+            elif hasattr(outputs, "logits"):
+                logits = outputs.logits
+            else:
+                logits = outputs
         except Exception as exc:
             self.logger.exception("Code-switch detection failed")
             raise RuntimeError("XLM-R code-switch detection failed") from exc
@@ -150,7 +156,7 @@ class XLMRCodeSwitchDetector:
 
     def _load_components(self) -> tuple[Any, nn.Module]:
         try:
-            from transformers import AutoTokenizer, XLMRobertaModel
+            from transformers import AutoTokenizer, XLMRobertaConfig, XLMRobertaModel
         except ImportError as exc:
             self.logger.exception("transformers is not installed")
             raise RuntimeError(
@@ -158,20 +164,43 @@ class XLMRCodeSwitchDetector:
             ) from exc
 
         try:
-            tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
-            backbone = XLMRobertaModel.from_pretrained(self.model_name_or_path)
-        except Exception as exc:
-            self.logger.exception("Failed to load XLM-R backbone from %s", self.model_name_or_path)
-            raise RuntimeError(
-                f"Failed to load XLM-R backbone from {self.model_name_or_path}"
-            ) from exc
+            config_path = Path(self.model_name_or_path)
+            from transformers import XLMRobertaTokenizerFast
+            tokenizer = XLMRobertaTokenizerFast.from_pretrained(config_path)
+            # Load config directly to avoid auto_map issues with custom model_type
+            config = XLMRobertaConfig.from_pretrained(config_path)
 
-        hidden_size = getattr(backbone.config, "hidden_size")
-        model = DialectAwareXLMRTokenClassifier(
-            backbone=backbone,
-            hidden_size=hidden_size,
-        )
-        return tokenizer, model
+            config = XLMRobertaConfig.from_pretrained(config_path)
+            backbone = XLMRobertaModel(config)
+            model = DialectAwareXLMRTokenClassifier(
+                backbone=backbone,
+                hidden_size=config.hidden_size,
+            )
+
+            state_dict = torch.load(
+                config_path / "pytorch_model.bin",
+                map_location="cpu",
+                weights_only=True,
+            )
+
+            remapped = {}
+            for key, value in state_dict.items():
+                if key.startswith("xlmr."):
+                    remapped[f"backbone.{key[len('xlmr.'):]}"] = value
+                elif key == "dialect_embeddings.weight":
+                    remapped["dialect_embedding.weight"] = value
+                elif key.startswith("classifier."):
+                    remapped[key] = value
+                else:
+                    remapped[key] = value
+
+            model.load_state_dict(remapped, strict=True)
+            return tokenizer, model
+        except Exception as exc:
+            self.logger.exception("Failed to load code-switch model from %s", self.model_name_or_path)
+            raise RuntimeError(
+                f"Failed to load code-switch model from {self.model_name_or_path}"
+            ) from exc
 
     def _move_features_to_device(self, features: CodeSwitchFeatures) -> CodeSwitchFeatures:
         return CodeSwitchFeatures(

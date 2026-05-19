@@ -66,15 +66,15 @@ class DialectConfig:
 
 @dataclass(frozen=True)
 class CodeSwitchConfig:
-    model_name_or_path: str = "xlm-roberta-base"
+    model_name_or_path: str = "models/1716Shinde/xlmr-cs-finetuned"
     device: str = DEFAULT_DEVICE
     max_length: int = 256
 
 
 @dataclass(frozen=True)
 class LLMConfig:
-    provider: str = "qwen"
-    model_name_or_path: str = "models/Qwen/Qwen2.5-7B-Instruct"
+    provider: str = "jais"
+    model_name_or_path: str = "models/mlconvexai/jais-13b-chat_bitsandbytes_4bit"
     device: str = DEFAULT_DEVICE
     max_new_tokens: int = 128
     temperature: float = 0.7
@@ -221,15 +221,15 @@ def _load_model_config(payload: dict[str, Any]) -> ModelConfig:
         ),
         code_switch=CodeSwitchConfig(
             model_name_or_path=str(
-                code_switch_payload.get("model_name_or_path", "xlm-roberta-base")
+                code_switch_payload.get("model_name_or_path", "models/1716Shinde/xlmr-cs-finetuned")
             ),
             device=str(code_switch_payload.get("device", "cpu")),
             max_length=int(code_switch_payload.get("max_length", 256)),
         ),
         llm=LLMConfig(
-            provider=str(llm_payload.get("provider", "qwen")),
+            provider=str(llm_payload.get("provider", "jais")),
             model_name_or_path=str(
-                llm_payload.get("model_name_or_path", "models/Qwen/Qwen2.5-7B-Instruct")
+                llm_payload.get("model_name_or_path", "models/mlconvexai/jais-13b-chat_bitsandbytes_4bit")
             ),
             device=str(llm_payload.get("device", "cpu")),
             max_new_tokens=int(llm_payload.get("max_new_tokens", 128)),

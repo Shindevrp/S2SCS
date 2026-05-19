@@ -11,6 +11,7 @@ import torchaudio.functional as audio_functional
 from app.config import AppConfig
 from app.dialect.camel_dialect import CamelDialectIdentifier
 from app.llm.gemma_model import GemmaResponseGenerator
+from app.llm.jais_model import JaisResponseGenerator
 from app.llm.qwen_model import QwenResponseGenerator
 from app.monitoring.metrics import MetricsRegistry
 from app.normalization.arabic_normalizer import ArabicTextNormalizer
@@ -143,9 +144,21 @@ class EndToEndSpeechPipeline:
         *,
         metrics: MetricsRegistry | None = None,
     ) -> "EndToEndSpeechPipeline":
-        llm_provider = (config.models.llm.provider or "qwen").strip().lower()
+        llm_provider = (config.models.llm.provider or "jais").strip().lower()
         if llm_provider == "gemma":
             response_generator = GemmaResponseGenerator(
+                model_name_or_path=config.resolve_reference(
+                    config.models.llm.model_name_or_path,
+                    local_only=config.models.llm.local_files_only,
+                ),
+                device=config.models.llm.device,
+                max_new_tokens=config.models.llm.max_new_tokens,
+                temperature=config.models.llm.temperature,
+                top_p=config.models.llm.top_p,
+                local_files_only=config.models.llm.local_files_only,
+            )
+        elif llm_provider == "jais":
+            response_generator = JaisResponseGenerator(
                 model_name_or_path=config.resolve_reference(
                     config.models.llm.model_name_or_path,
                     local_only=config.models.llm.local_files_only,
@@ -190,7 +203,7 @@ class EndToEndSpeechPipeline:
         code_switch_detector = XLMRCodeSwitchDetector(
             model_name_or_path=config.resolve_reference(
                 config.models.code_switch.model_name_or_path,
-                local_only=False,
+                local_only=True,
             ),
             device=config.models.code_switch.device,
             max_length=config.models.code_switch.max_length,
